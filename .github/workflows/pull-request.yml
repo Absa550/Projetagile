@@ -35,6 +35,7 @@ jobs:
         run: mvn org.owasp:dependency-check-maven:check -P cve
 
       - name: Run unit tests
+        run: mvn test -Put -Pit     
 
       - name: SonarCloud Analysis
         uses: SonarSource/sonarcloud-github-action@master
