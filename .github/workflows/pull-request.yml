@@ -36,7 +36,7 @@ jobs:
 
       - name: Run unit tests
 
-            - name: SonarCloud Analysis
+      - name: SonarCloud Analysis
         uses: SonarSource/sonarcloud-github-action@master
         with:
           projectBaseDir: .
