@@ -1,80 +1,52 @@
-name: Build & Deploy - Main
+name: "Pull Request"
 
 on:
-  push:
+  pull_request:
     branches:
-      - main
-      - master
+      - 'main'
+      - 'master'
+      - 'DIC1-*'
+      - 'IS-*'
 
 jobs:
-  build:
-    name: Build and Analyze
+  ci-checks:
     runs-on: ubuntu-latest
 
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      DOCKER_USER: ${{ secrets.DOCKER_USER }}
-      DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Checkout du code
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Important pour sonar et historique git complet
 
-      - name: Set up JDK 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
+          distribution: 'temurin'
           java-version: '17'
-          distribution: 'zulu'
 
-      - name: Cache Maven packages
-        uses: actions/cache@v4
+      - name: Scan secrets with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          config-path: .github/.gitleaks.toml
 
-      - name: Tests unitaires et intégration
+      - name: Dependency vulnerability check (OWASP)
+        run: mvn org.owasp:dependency-check-maven:check -P cve
+
+      - name: Run unit tests
         run: mvn test -Put -Pit
 
-      - name: Analyse SonarCloud
-        run: |
-          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.projectKey=Absa550_Projetagile \
-            -Dsonar.organization=absa550 \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      - name: SonarCloud Analysis
+        run: mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          -Dsonar.projectKey=absa550_todos \
+          -Dsonar.organization=absa550 \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      - name: Vérification Quality Gate
-        uses: SonarSource/sonarcloud-github-action@v2.1.1
-        with:
-          projectKey: Absa550_Projetagile
-          organization: absa550
+      - name: Wait and check SonarCloud Quality Gate
+        uses: sonarsource/sonarcloud-quality-gate-action@v2.1.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: Release (incrémenter version)
-        run: |
-          current_version=$(cat version.txt)
-          new_version=$(echo $current_version | awk -F. '{$NF+=1; OFS="."; print}')
-          echo "$new_version" > version.txt
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add version.txt
-          git commit -m "chore(release): bump version to $new_version"
-          git tag "v$new_version"
-          git push origin main --tags
-
-      - name: Build Docker images
-        run: |
-          docker login -u $DOCKER_USER -p $DOCKER_PASS
-          VERSION=$(cat version.txt)
-          docker build -t $DOCKER_USER/todos:$VERSION .
-          docker tag $DOCKER_USER/todos:$VERSION $DOCKER_USER/todos:latest
-          docker push $DOCKER_USER/todos:$VERSION
-          docker push $DOCKER_USER/todos:latest
-
-      - name: Déploiement (optionnel)
-        run: |
-          echo "Déploiement en cours..."
