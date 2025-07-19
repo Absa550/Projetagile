@@ -38,16 +38,12 @@ jobs:
         run: mvn test -Put -Pit
 
       - name: SonarCloud Analysis
-        uses: SonarSource/sonarcloud-github-action@master
-        with:
-          projectBaseDir: .
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.projectKey=absa550_todos \
+            -Dsonar.organization=absa550 \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      - name: Wait and check SonarCloud Quality Gate
-        uses: sonarsource/sonarcloud-quality-gate-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: Run additional tests (ut profile)
+      - name: Run additional UT tests (if needed)
         run: mvn clean test -P ut
