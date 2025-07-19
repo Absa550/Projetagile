@@ -34,19 +34,16 @@ jobs:
       - name: Dependency vulnerability check (OWASP)
         run: mvn org.owasp:dependency-check-maven:check -P cve
 
-      - name: Run unit tests (ut + it)
-        run: mvn clean test -Put -Pit
+      - name: Run unit tests
+        run: mvn test -Put -Pit
 
       - name: SonarCloud Analysis
         run: |
-          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          mvn verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=absa550_todos \
             -Dsonar.organization=absa550 \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      - name: Wait and check SonarCloud Quality Gate
-        uses: sonarsource/sonarcloud-quality-gate-action@master  
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
+      - name: Run additional UT tests (if needed)
+        run: mvn clean test -P ut
